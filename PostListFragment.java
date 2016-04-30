@@ -3,24 +3,18 @@ package uk.ac.wlv.wolfrumors;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
-import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.support.v7.app.ActionBarActivity;
-import android.widget.AdapterView;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -31,7 +25,6 @@ import com.bignerdranch.android.multiselector.SwappingHolder;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Created by user on 4/26/2016.
@@ -39,7 +32,7 @@ import java.util.UUID;
 public class PostListFragment extends Fragment {
     private RecyclerView mPostRecyclerView;
     private PostAdapter mAdapter;
-    private boolean mdeleteVisible = false;
+    //private boolean mdeleteVisible = false;
     @Override
     public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
@@ -70,13 +63,13 @@ public class PostListFragment extends Fragment {
     public void onCreateOptionsMenu(Menu menu,MenuInflater inflater) {
         // Inflate the menu items for use in the action bar
         super.onCreateOptionsMenu(menu, inflater);
-        inflater.inflate(R.menu.fragment_post_list, menu);
+        inflater.inflate(R.menu.fragment_post_list_menu, menu);
         MenuItem deleteItem = menu.findItem(R.id.menu_item_delete_post);
         // hide option until an element is created
-        if (mdeleteVisible){
-            deleteItem.setVisible(false);
-            getActivity().invalidateOptionsMenu();
-        }
+        //if (mdeleteVisible){
+        //    deleteItem.setVisible(false);
+        //    getActivity().invalidateOptionsMenu();
+        //}
     }
     @Override
     public boolean onOptionsItemSelected(MenuItem item){
@@ -91,6 +84,10 @@ public class PostListFragment extends Fragment {
                 return true;
             case R.id.menu_item_sync_post:
                 //syncPosts();
+                Intent share = new Intent();
+                share.setClass(getContext(), OAuthHelper.class);
+                startActivity(share);
+
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -116,6 +113,8 @@ public class PostListFragment extends Fragment {
     private void syncPosts(){
 
     }
+    boolean mState = false; // setting state
+
     private MultiSelector mMultiSelector = new MultiSelector();
     /////////////////////////////////////////////////
     //keep track of the visual element of each Post
@@ -128,20 +127,27 @@ public class PostListFragment extends Fragment {
             super.onCreateActionMode(actionMode, menu);
             getActivity().getMenuInflater().inflate(R.menu.post_list_delete, menu);
 
+            if (mState){
+                menu.getItem(1).setVisible(false);
+            }
+
             return true;
         }
         @Override
 
         public boolean onPrepareActionMode(ActionMode actionMode, Menu menu){
+
+
             return true;
         }
 
         @Override
         public boolean onActionItemClicked(ActionMode actionMode, MenuItem menuItem) {
 
-
             PostLab postlab = PostLab.get(getActivity());
             List<Post> posts = postlab.getPosts();
+
+
 
             switch(menuItem.getItemId()){
                 case R.id.menu_item_delete_post:
@@ -275,7 +281,7 @@ public class PostListFragment extends Fragment {
         @Override
         public void onBindViewHolder(PostHolder holder, int position) {
             Post post = mPosts.get(position);
-            Log.d("TAG",Integer.toString(holder.getAdapterPosition()));
+            //Log.d("TAG",Integer.toString(holder.getAdapterPosition()));
 
             //holder.mTitleTextView.setText(post.getTitle());
             holder.bindPost(post);
