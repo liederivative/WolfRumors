@@ -22,9 +22,9 @@ public class PostPagerActivity extends AppCompatActivity {
     private ViewPager mViewPager;
     private List<Post> mPosts;
 
-    public static Intent newIntent(Context packageContext, UUID crimeId) {
+    public static Intent newIntent(Context packageContext, UUID postId) {
         Intent intent = new Intent(packageContext, PostPagerActivity.class);
-        intent.putExtra(EXTRA_POST_ID, crimeId);
+        intent.putExtra(EXTRA_POST_ID, postId);
         return intent;
     }
 

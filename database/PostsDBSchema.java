@@ -20,5 +20,13 @@ public class PostsDBSchema {
 
         }
     }
+    public static final class oauthTokenFactory {
+        public static final String NAME = "oauth";
+        public static final class Cols {
+            public static final String TOKEN = "refresh_token";
+            public static final String DATE = "date";
+
+        }
+    }
 
 }

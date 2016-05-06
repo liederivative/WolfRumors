@@ -1,127 +1,164 @@
 package uk.ac.wlv.wolfrumors;
 
-import android.accounts.Account;
-import android.accounts.AccountManager;
-import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
-import android.os.AsyncTask;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+
+import android.util.Base64;
 import android.util.Log;
-import android.widget.Toast;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
-import com.google.android.gms.auth.AccountChangeEvent;
-import com.google.android.gms.auth.GoogleAuthException;
-import com.google.android.gms.auth.GoogleAuthUtil;
-import com.google.android.gms.common.AccountPicker;
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleOAuthConstants;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import java.util.Date;
+import java.util.concurrent.ExecutionException;
 
-import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
+import uk.ac.wlv.wolfrumors.database.PostCursorWrapper;
+import uk.ac.wlv.wolfrumors.database.PostDBReferee;
+import uk.ac.wlv.wolfrumors.database.PostsDBSchema.oauthTokenFactory;
 
 /**
  * Created by user on 4/30/2016.
  */
-public class OAuthHelper extends AppCompatActivity{
-    HttpTransport HTTP_TRANSPORT = new NetHttpTransport();
-    //JsonFactory JSON_FACTORY = new JsonFactory();
-    static final int REQUEST_CODE_PICK_ACCOUNT = 1000;
+public class OAuthHelper extends AppCompatActivity {
+    static final int REQUEST_AUTHORIZATION = 1003;
     static final String AUTH_BLOGGER = "oauth2:https://www.googleapis.com/auth/blogger";
-    static OAuthHelper mContext;
+    private WebView mWebView;
+    Uri.Builder uriWebView = new Uri.Builder();
+    private String token;
+    private getToken task = new getToken();
+    //private BloggerHandler mBlogger = new BloggerHandler();
+    private SQLiteDatabase mDatabase;
+    private boolean canIProceed;
 
-    static OAuthHelper getContext(){
-        return mContext;
+
+    public void init(Context mContext){
+
+        mDatabase = new PostDBReferee(mContext).getWritableDatabase();
+        token = this.getRefreshToken();
+        canIProceed = (token == null)?true:token.isEmpty();
     }
 
-    public void pickUserAccount() {
-        String[] accountTypes = new String[]{"com.google"};
-        Intent intent = AccountPicker.newChooseAccountIntent(null, null,
-                accountTypes, false, null, null, null, null);
-        startActivityForResult(intent, REQUEST_CODE_PICK_ACCOUNT);
-    }
-    private String getToken(Context context, Account account, String scope){
-        try {
-            return  GoogleAuthUtil.getToken( context, account, scope  );
-
-        } catch (IOException e) {
-            Log.d("TAG",e.toString());
-        } catch (GoogleAuthException e) {
-            Log.d("TAG",e.toString());
-        }
-        return null;
-    }
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate( Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        OAuthHelper.mContext = this;
-        pickUserAccount();
+        this.init(getApplicationContext());
 
+        if(canIProceed) {
+            setContentView(R.layout.logging_page);
+            mWebView = (WebView) findViewById(R.id.web_login);
+            uriWebView.scheme("https")
+                    .authority("accounts.google.com")
+                    .appendPath("o")
+                    .appendPath("oauth2")
+                    .appendPath("v2")
+                    .appendPath("auth")
+                    .appendQueryParameter("response_type", "code")
+                    //.appendQueryParameter("approval_prompt", "force")
+                    //.appendQueryParameter("prompt", "consent")
+                    //.appendQueryParameter("access_type", "offline")
+                    .appendQueryParameter("redirect_uri", "urn:ietf:wg:oauth:2.0:oob:auto")
+                    .appendQueryParameter("client_id", "605511989748-5h38harhnq0ta6jllir0fg6a7t9vb5o6.apps.googleusercontent.com")
+                    .appendQueryParameter("scope", "https://www.googleapis.com/auth/blogger");
+        }
     }
-
-    String mEmail; // Received from newChooseAccountIntent(); passed to getToken()
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_CODE_PICK_ACCOUNT) {
-            // Receiving a result from the AccountPicker
-            if (resultCode == RESULT_OK) {
-                mEmail = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
-                // With the account name acquired, go get the auth token
-                String username = getUsername();
-                final Account acc = new Account( username, AccountManager.KEY_ACCOUNT_NAME);
-                AsyncTask<Void, Void, String> task = new AsyncTask<Void, Void, String>() {
+    protected void onResume() {
+        super.onResume();
+        if(canIProceed) {
+            mWebView.getSettings().setJavaScriptEnabled(true);
+            mWebView.loadUrl(uriWebView.build().toString());
+            mWebView.setWebViewClient(new WebViewClient() {
+                boolean proceed = false;
 
-                    @Override
-                    protected String doInBackground(Void... params) {
-                        String token = "";
-                        token = getToken(OAuthHelper.getContext(),acc,AUTH_BLOGGER);
-                        return token;
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    Log.d("URL", url);
+                    String titleWebView = mWebView.getTitle();
+                    Log.d("TITLE", mWebView.getTitle());
+                    if (titleWebView.contains("code=")) {
+
+                        proceed = true;
+                        token = titleWebView.split("=")[1];
+
+                        try {
+                            String refreshToken = task.execute(new String[] {token,"refresh_token"}).get();
+                            //Save on DB
+                            token= refreshToken;
+                            sendTokenBack();
+                            ContentValues values = getContentValues(refreshToken);
+                            mDatabase.insert(oauthTokenFactory.NAME, null, values);
+                            finish();
+                           // mBlogger.execute(accessToken);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        } catch (ExecutionException e) {
+                            e.printStackTrace();
+                        }
+
                     }
-                    @Override
-                    protected void onPostExecute(String token) {
-                        Log.d("TAG", "Access token retrieved:" + token);
-                    }
+                }
+            });
 
-                };
-                task.execute();
-
-
-            } else if (resultCode == RESULT_CANCELED) {
-                // The account picker dialog closed without selecting an account.
-                // Notify users that they must pick an account to proceed.
-                Toast.makeText(this, "Pick an Account Motherf** ", Toast.LENGTH_SHORT).show();
-            }
+        }else {
+            //mBlogger.execute(token);
+            sendTokenBack();
+            finish();
         }
-        // Handle the result from exceptions
 
     }
-    public String getUsername() {
-        AccountManager manager = AccountManager.get(this);
-        Account[] accounts = manager.getAccountsByType("com.google");
-        List<String> possibleEmails = new LinkedList<String>();
+    private void sendTokenBack(){
+        setResult(RESULT_OK, new Intent().putExtra("access_token",token));
+    }
+    private static ContentValues getContentValues (String token){
+        ContentValues values = new ContentValues();
+        values.put(oauthTokenFactory.Cols.TOKEN, token);
+        values.put(oauthTokenFactory.Cols.DATE, new Date().toString());
 
-        for (Account account : accounts) {
-            // TODO: Check possibleEmail against an email regex or treat
-            // account.name as an email address only for certain account.type values.
-            possibleEmails.add(account.name);
+        return values;
+    }
+    public String getRefreshToken() {
+        Cursor cursor_ = mDatabase.query(
+                oauthTokenFactory.NAME, new String[] {oauthTokenFactory.Cols.TOKEN}, // null selects all columns
+                null,
+                null,
+                null, //groupby
+                null, //having
+                null // orderBy
+        );
+        PostCursorWrapper cursor = new PostCursorWrapper(cursor_);
+        try{
+            if (cursor.getCount() == 0){
+                return null;
+            }
+            cursor.moveToFirst();
+            return cursor.getAccessToken();
+        }finally {
+            cursor.close();
         }
 
-        if (!possibleEmails.isEmpty() && possibleEmails.get(0) != null) {
-            String email = possibleEmails.get(0);
-            String[] parts = email.split("@");
-
-            if (parts.length > 1)
-                return parts[0];
+    }
+    public String getAccessToken(String refreshToken) {
+        String accessToken = null;
+        try {
+            accessToken = task.execute(new String[] {refreshToken,"access_token"}).get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
         }
-        return null;
+        return accessToken;
     }
 }
+

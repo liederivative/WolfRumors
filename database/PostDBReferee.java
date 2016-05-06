@@ -29,6 +29,12 @@ public class PostDBReferee extends SQLiteOpenHelper {
                 PostTable.Cols.IS_CAMERA + ")"
 
         );
+        db.execSQL("CREATE TABLE " + PostsDBSchema.oauthTokenFactory.NAME +
+                "(" + "_id integer primary key autoincrement," +
+                PostsDBSchema.oauthTokenFactory.Cols.TOKEN + "," +
+                PostsDBSchema.oauthTokenFactory.Cols.DATE + ")"
+
+        );
 
     }
     @Override

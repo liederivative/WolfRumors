@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import uk.ac.wlv.wolfrumors.Post;
 import uk.ac.wlv.wolfrumors.database.PostsDBSchema.PostTable;
+import uk.ac.wlv.wolfrumors.database.PostsDBSchema.oauthTokenFactory;
 
 /**
  * Created by user on 4/28/2016.
@@ -17,7 +18,11 @@ public class PostCursorWrapper extends CursorWrapper {
     public PostCursorWrapper(Cursor cursor){
         super(cursor);
     }
-
+    public String getAccessToken(){
+        String refreshToken = getString(getColumnIndex(oauthTokenFactory.Cols.TOKEN));
+        //Long date = getLong(getColumnIndex(oauthTokenFactory.Cols.DATE));
+        return refreshToken;
+    }
     public Post getPost() {
         String uuid_ = getString(getColumnIndex(
                 PostTable.Cols.UUID));

@@ -1,6 +1,8 @@
 package uk.ac.wlv.wolfrumors;
 
 import android.app.Activity;
+import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -8,7 +10,10 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.support.annotation.NonNull;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -31,7 +36,10 @@ import android.widget.Toast;
 import org.w3c.dom.Text;
 
 import java.io.File;
+import java.lang.reflect.Array;
 import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -93,7 +101,9 @@ public class FragmentPost extends Fragment {
         mPost = PostLab.get(getActivity()).getPost(postId);
        // mPhotoFile = PostLab.get(getActivity()).getPhotoFile(mPost);
 
+
     }
+
     // write to db when FragmentPost is done
     @Override
     public void onPause(){
@@ -113,7 +123,13 @@ public class FragmentPost extends Fragment {
 
         mPhotoView = (ImageView) v.findViewById(R.id.post_photo);
 
-
+        mPhotoView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                intentSelector u = new intentSelector();
+                u.show(getFragmentManager(),"SELECT");
+            }
+        });
         mTitleField.setText(mPost.getTitle());
         mContentField.setText(mPost.getContent());
         mTitleField.addTextChangedListener(new TextWatcher() {
@@ -167,7 +183,7 @@ public class FragmentPost extends Fragment {
             public void onClick(View v){
 
                 mPhotoFile = PostLab.get(getActivity()).getPhotoFile(mPost);
-               // mPhotoView.setImageDrawable(null);
+                // mPhotoView.setImageDrawable(null);
                 boolean canTakePhoto = mPhotoFile !=null
                         && captureImage.resolveActivity(packageManager) != null;
                 mPost.setPhotoPath("",true);
@@ -179,7 +195,7 @@ public class FragmentPost extends Fragment {
                 }
                 // Create intent for picking a photo from the gallery
 
-               startActivityForResult(captureImage,REQUEST_PHOTO);
+                startActivityForResult(captureImage,REQUEST_PHOTO);
             }
         });
         mPhotoButton.setOnClickListener(new View.OnClickListener(){
@@ -191,6 +207,7 @@ public class FragmentPost extends Fragment {
                     startActivityForResult(getImage, REQUEST_PHOTO_GALLERY);
 
                 }
+
                 //startActivityForResult(captureImage,REQUEST_PHOTO);
             }
         });
@@ -246,5 +263,47 @@ public class FragmentPost extends Fragment {
     public void onDestroy() {
         super.onDestroy();
         Toast.makeText(getActivity(), "Post changes have been saved.", Toast.LENGTH_SHORT).show();
+    }
+    public class intentSelector extends DialogFragment {
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            builder.setTitle("Select source")
+                    .setItems(R.array.intent_menu , new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            // The 'which' argument contains the index position
+                            // of the selected item
+                            switch (which){
+                                case 0:
+                                    PackageManager packageManager = getActivity().getPackageManager();
+                                    Intent captureImage = new Intent (MediaStore.ACTION_IMAGE_CAPTURE);
+
+                                    mPhotoFile = PostLab.get(getActivity()).getPhotoFile(mPost);
+                                    // mPhotoView.setImageDrawable(null);
+                                    boolean canTakePhoto = mPhotoFile !=null
+                                            && captureImage.resolveActivity(packageManager) != null;
+                                    mPost.setPhotoPath("",true);
+                                    mCameraButton.setEnabled(canTakePhoto);
+                                    if (canTakePhoto){
+                                        Uri uri = Uri.fromFile(mPhotoFile);
+                                        captureImage.putExtra(MediaStore.EXTRA_OUTPUT,uri);
+
+                                    }
+                                    // Create intent for picking a photo from the gallery
+
+                                    startActivityForResult(captureImage,REQUEST_PHOTO);
+
+                                case 1:
+                                    return;
+
+                            }
+                        }
+                    });
+            return builder.create();
+
+        }
+
+
     }
 }
