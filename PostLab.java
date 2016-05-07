@@ -97,6 +97,7 @@ public class PostLab {
         values.put(PostTable.Cols.LAST_MOD, post.getLastMod().getTime() );//.getTime());
         values.put(PostTable.Cols.PHOTO_URL,post.getPhotoFilename());
         values.put(PostTable.Cols.IS_CAMERA,post.getStatusPhoto()?"1":"0");
+        values.put(PostTable.Cols.POST_ID,post.getPostId());
 
         return values;
     }

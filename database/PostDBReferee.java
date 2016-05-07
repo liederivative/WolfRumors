@@ -26,7 +26,8 @@ public class PostDBReferee extends SQLiteOpenHelper {
                 PostTable.Cols.DATE + ","+
                 PostTable.Cols.LAST_MOD + ","+
                 PostTable.Cols.PHOTO_URL + "," +
-                PostTable.Cols.IS_CAMERA + ")"
+                PostTable.Cols.IS_CAMERA + "," +
+                PostTable.Cols.POST_ID + ")"
 
         );
         db.execSQL("CREATE TABLE " + PostsDBSchema.oauthTokenFactory.NAME +

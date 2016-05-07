@@ -21,6 +21,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebView;
 import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -37,10 +38,11 @@ import java.util.List;
 /**
  * Created by user on 4/26/2016.
  */
-public class PostListFragment extends Fragment {
+public class PostListFragment extends Fragment{
     private RecyclerView mPostRecyclerView;
     private PostAdapter mAdapter;
     static final int OAUTH_REQUEST = 2096;
+    static final int DELETE_DIALOG = 2097;
     //private boolean mdeleteVisible = false;
     boolean mState = false; // setting state
     private MultiSelector mMultiSelector = new MultiSelector();
@@ -114,18 +116,39 @@ public class PostListFragment extends Fragment {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-
+        if(resultCode != Activity.RESULT_OK){
+            return;
+        }
         if (requestCode == OAUTH_REQUEST){
 
-            if (resultCode == Activity.RESULT_OK && data != null) {
+            if (data != null) {
                 String t = data.getStringExtra("access_token");
 
                 Log.d("OAUTH", t);
             }
 
+        }else if (requestCode == DELETE_DIALOG){
+            ArrayList<String> params = data.getStringArrayListExtra("array.params");
+            if(params.get(0).equals("delete")){
+                if(params.get(1).equals("YES")){
+                    //Delete posts
+                    PostLab postlab = PostLab.get(getActivity());
+                    List<Post> posts = postlab.getPosts();
+                    for (int i = posts.size(); i >= 0; i--) {
+                        if (mMultiSelector.isSelected(i, 0)) { // (1)
+                            // remove item from list
+                            PostLab.get(getActivity()).deletePost(posts.get(i));
+                            posts.remove(i);
+                            mAdapter.setPosts(posts);
+                            mAdapter.notifyItemRemoved(i);
+                        }
+                    }
+                    mMultiSelector.clearSelections();
+                }
+            }
         }
     }
-    private void updateUI() {
+    public void updateUI() {
         PostLab postlab = PostLab.get(getActivity());
         List<Post> posts = postlab.getPosts();
         //Log.d("TAG",posts.toString());
@@ -146,6 +169,7 @@ public class PostListFragment extends Fragment {
     private void syncPosts(){
 
     }
+
 
     /////////////////////////////////////////////////
     //keep track of the visual element of each Post
@@ -183,8 +207,11 @@ public class PostListFragment extends Fragment {
             switch(menuItem.getItemId()){
                 case R.id.menu_item_delete_post:
                     actionMode.finish();
-                    deleteDialog m = new deleteDialog();
-                    m.show(getFragmentManager(),"TAG");
+                    ArrayList<String> params = new ArrayList<>();
+                    params.add("delete");
+                    DialogFragment m = NoticeDialog.newInstance(params);
+                    m.setTargetFragment(PostListFragment.this, DELETE_DIALOG);
+                    m.show(getFragmentManager(),"NoticeDialog");
 
                     return true;
                 case R.id.menu_item_share_post:
@@ -227,22 +254,32 @@ public class PostListFragment extends Fragment {
                     oauthHandler.init(getContext());
                     String refresh_token = oauthHandler.getRefreshToken();
                     String tmp = oauthHandler.getAccessToken(refresh_token);
-                    Log.d("CLASS",tmp);
-                    boolean canIProceed = (tmp == null)?true:tmp.isEmpty();
 
-                    ArrayList<Post> postSelected = new ArrayList<Post>();
-                    for (int a = posts.size(); a >= 0; a--) {
-                        if (mMultiSelector.isSelected(a, 0)) { // (1)
-                            //
-                            postSelected.add(posts.get(a));
+                    if ( (tmp == null)?true:tmp.isEmpty()) {
+                        Toast.makeText(getActivity(), "You need to login first", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getActivity(), "Go back and press Sync Button", Toast.LENGTH_LONG).show();
+
+                    }else if (!tmp.isEmpty()) {
+
+                        Log.d("CLASS", tmp);
+
+                        ArrayList<Post> postSelected = new ArrayList<Post>();
+                        for (int a = posts.size(); a >= 0; a--) {
+                            if (mMultiSelector.isSelected(a, 0)) { // (1)
+                                //
+                                postSelected.add(posts.get(a));
+                            }
                         }
+
+
+                        BloggerHandler upload = new BloggerHandler(tmp, getContext());
+                        Object[] u = {"upload", postSelected};
+                        upload.execute(u);
                     }
-
-
-                    BloggerHandler upload = new BloggerHandler(tmp);
-                    Object[] u = {"upload",postSelected};
-
-                    upload.execute(u);
+                    mMultiSelector.clearSelections();
+                    Toast.makeText(getContext(), "Post(s) updated", Toast.LENGTH_SHORT).show();
+                    mAdapter.setPosts(posts);
+                    mAdapter.notifyDataSetChanged();
                     return true;
             }
             return false;
@@ -362,39 +399,6 @@ public class PostListFragment extends Fragment {
             }
             updateUI();
 
-        }
-    }
-    public class deleteDialog extends DialogFragment {
-
-        @Override
-        public Dialog onCreateDialog(Bundle savedInstanceState) {
-            // Use the Builder class for convenient dialog construction
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-            builder.setMessage("Are you sure?")
-                    .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            PostLab postlab = PostLab.get(getActivity());
-                            List<Post> posts = postlab.getPosts();
-                            for (int i = posts.size(); i >= 0; i--) {
-                                if (mMultiSelector.isSelected(i, 0)) { // (1)
-                                    // remove item from list
-                                    PostLab.get(getActivity()).deletePost(posts.get(i));
-                                    posts.remove(i);
-                                    mAdapter.setPosts(posts);
-                                    mAdapter.notifyItemRemoved(i);
-                                }
-                            }
-                            mMultiSelector.clearSelections();
-
-                        }
-                    })
-                    .setNegativeButton("No", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            // User cancelled the dialog
-                        }
-                    });
-            // Create the AlertDialog object and return it
-            return builder.create();
         }
     }
 

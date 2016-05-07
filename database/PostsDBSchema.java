@@ -15,6 +15,7 @@ public class PostsDBSchema {
             public static final String LAST_MOD = "last_mod";
             public static final String PHOTO_URL = "photo_url";
             public static final String IS_CAMERA = "is_camera";
+            public static final String POST_ID = "post_id";
 
 
 

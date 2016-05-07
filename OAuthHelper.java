@@ -18,6 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 
 import java.util.Date;
 import java.util.concurrent.ExecutionException;
@@ -35,14 +36,14 @@ public class OAuthHelper extends AppCompatActivity {
     private WebView mWebView;
     Uri.Builder uriWebView = new Uri.Builder();
     private String token;
-    private getToken task = new getToken();
+    private getToken task;
     //private BloggerHandler mBlogger = new BloggerHandler();
     private SQLiteDatabase mDatabase;
     private boolean canIProceed;
 
 
     public void init(Context mContext){
-
+        task = new getToken();
         mDatabase = new PostDBReferee(mContext).getWritableDatabase();
         token = this.getRefreshToken();
         canIProceed = (token == null)?true:token.isEmpty();
@@ -88,10 +89,9 @@ public class OAuthHelper extends AppCompatActivity {
                     String titleWebView = mWebView.getTitle();
                     Log.d("TITLE", mWebView.getTitle());
                     if (titleWebView.contains("code=")) {
-
+                        finish();
                         proceed = true;
                         token = titleWebView.split("=")[1];
-
                         try {
                             String refreshToken = task.execute(new String[] {token,"refresh_token"}).get();
                             //Save on DB
@@ -99,8 +99,8 @@ public class OAuthHelper extends AppCompatActivity {
                             sendTokenBack();
                             ContentValues values = getContentValues(refreshToken);
                             mDatabase.insert(oauthTokenFactory.NAME, null, values);
-                            finish();
                            // mBlogger.execute(accessToken);
+                            Toast.makeText(OAuthHelper.this, "Successful!! Can Sync and Upload now", Toast.LENGTH_LONG).show();
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         } catch (ExecutionException e) {

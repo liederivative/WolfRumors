@@ -19,6 +19,7 @@ public class Post {
     private Date mLastMod;
     private boolean mIsCamera;
     private String mPhoto;
+    private String mPostID;
 
     public Post() {
         // Generate unique identifier
@@ -83,6 +84,12 @@ public class Post {
             mPhoto = "IMG_"+getId().toString()+".jpg";
         }
 
+    }
+    public void setPostId(String post_id){
+        mPostID = post_id;
+    }
+    public String getPostId(){
+        return mPostID;
     }
     //public void setPhotoPath(Integer i){
     //    if (i!=0){

@@ -36,6 +36,7 @@ public class PostCursorWrapper extends CursorWrapper {
                 PostTable.Cols.LAST_MOD));
         String photo_url = getString(getColumnIndex(PostTable.Cols.PHOTO_URL));
         String is_camera = getString(getColumnIndex(PostTable.Cols.IS_CAMERA));
+        String post_id = getString(getColumnIndex(PostTable.Cols.POST_ID));
 
         Post post = new Post(UUID.fromString(uuid_));
         post.setTitle(title);
@@ -49,6 +50,7 @@ public class PostCursorWrapper extends CursorWrapper {
             post.setPhotoPath(photo_url,false);
         }
         post.setIsCamera(is_camera);
+        post.setPostId(post_id);
 
         return post;
     }

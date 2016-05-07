@@ -1,5 +1,7 @@
 package uk.ac.wlv.wolfrumors;
 
+import android.app.ProgressDialog;
+import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -21,6 +23,9 @@ public class getToken extends AsyncTask<String,String,String> {
     static final String REFRESH_TOKEN = "https://www.googleapis.com/oauth2/v4/token";
     static final String CLIENT_ID = "605511989748-5h38harhnq0ta6jllir0fg6a7t9vb5o6.apps.googleusercontent.com";
     static final String REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob:auto";
+
+
+
 
     @Override
     protected String doInBackground(String... authToken) {
