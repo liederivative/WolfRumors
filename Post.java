@@ -1,7 +1,9 @@
 package uk.ac.wlv.wolfrumors;
 
+import android.os.Environment;
 import android.util.Log;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -72,7 +74,7 @@ public class Post {
     }
     public String getContent() {return mContent;}
     public void setContent(String content){ mContent = content;}
-    public String getPhotoFilename() {
+    public String getPhotoPath() {
         return mPhoto;
     }
     public void setPhotoPath(String path, boolean opt){
@@ -80,8 +82,12 @@ public class Post {
             mIsCamera = false;
             mPhoto = path;
         }else {
+
+            File photo = new File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                    "IMG_"+getId().toString()+".jpg");
             mIsCamera = true;
-            mPhoto = "IMG_"+getId().toString()+".jpg";
+            mPhoto = photo.getPath();
         }
 
     }

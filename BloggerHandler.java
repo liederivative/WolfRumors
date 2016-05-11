@@ -22,6 +22,7 @@ import com.google.api.services.blogger.model.User;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -42,13 +43,22 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
     private ProgressDialog loadDialog;
     private List<Object> result;
 
-    public BloggerHandler(String accessToken, Context context){
+
+    public BloggerHandler(String accessToken,Context context){
         credential = new GoogleCredential().setAccessToken(accessToken);
-        blog = new Blogger.Builder(new NetHttpTransport(), new JacksonFactory(),credential).build();
+        blog = new Blogger.Builder(new NetHttpTransport(), new JacksonFactory(),credential).setApplicationName("wolfrumors").build();
+
         mContext = context;
+
+
+    }
+    public static BloggerHandler newInstance(String accessToken, Context context){
+        BloggerHandler handler = new BloggerHandler(accessToken,context);
+        return handler;
     }
 
     public String getUserId()throws IOException{
+
         Blogger.Users.Get usersGetAction = null;
         usersGetAction = blog.users().get("self");
         //usersGetAction.setFields("displayName,id");
@@ -70,12 +80,12 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
     @Override
     protected void onPreExecute() {
         super.onPreExecute();
-        loadDialog = new ProgressDialog(mContext);
-        loadDialog.setMessage("Working on your selection...");
-        loadDialog.setIndeterminate(false);
-        loadDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        loadDialog.setCancelable(true);
-        loadDialog.show();
+//        loadDialog = new ProgressDialog(mContext);
+//        loadDialog.setMessage("Working on your selection...");
+//        loadDialog.setIndeterminate(false);
+//        loadDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+//        loadDialog.setCancelable(true);
+//        loadDialog.show();
     }
     public Object postIdExists(String BLOG_ID, String POST_ID){
         // The request action.
@@ -95,6 +105,9 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
             e.printStackTrace();
             returnResults.add(false);
             return returnResults;
+        } catch (NullPointerException e){
+            e.printStackTrace();
+            return returnResults;
         }
 
     }
@@ -104,12 +117,17 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
         content.setTitle(post.getTitle());
         content.setContent(post.getContent());
         //com.google.api.services.blogger.model.Post.Images test = new com.google.api.services.blogger.model.Post.Images();
-        //test.set("test.jpg",new File(post.getPhotoFilename()).createNewFile());
+        //test.set("test.jpg",new File(post.getPhotoPath()).createNewFile());
 
         //com.google.api.services.blogger.model.Post.Images[] = {test};
         //List<com.google.api.services.blogger.model.Post.Images> list = new ArrayList<com.google.api.services.blogger.model.Post.Images>();
         //content.setImages( list.add(test));
-
+        List<com.google.api.services.blogger.model.Post.Images> images = new ArrayList<>();
+        com.google.api.services.blogger.model.Post.Images img = new com.google.api.services.blogger.model.Post.Images();
+        img.set(getFileName(post.getPhotoPath()),new File(post.getPhotoPath()));
+        images.add(img);
+        content.setImages(images);
+        content.set("fetchImages",true);
         // The request action.
         Blogger.Posts.Insert postsInsertAction = null;
         try {
@@ -133,12 +151,23 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
         }
 
     }
+    private String getFileName(String b){
+        char[] c = new char[b.length()];
+        int i;
+        char[] d = b.toCharArray();
+        for(i = b.length()-1;i>0;i--){
+            if(String.valueOf(b.charAt(i)).equals("/")) break;
+            c[i]+=d[i];
+        }
+        return String.copyValueOf(c);
+    }
     public boolean updatePost(String BLOG_ID, Post post){
         // Construct the post update body
         com.google.api.services.blogger.model.Post content = new com.google.api.services.blogger.model.Post();
         content.setId(post.getPostId());
         content.setTitle(post.getTitle());
         content.setContent(post.getContent());
+
         // This step sends the request to the server.
         try {
             // The request action.
@@ -157,7 +186,7 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
             return false;
         }
     }
-    public boolean downloadPost(String BLOG_ID, Post post, Object params){
+    public boolean downloadPost( Post post, Object params){
         com.google.api.services.blogger.model.Post result = (com.google.api.services.blogger.model.Post) params;
         post.setContent(result.getContent());
         post.setTitle(result.getTitle());
@@ -178,74 +207,76 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
         }
 
         try {
-            if (params[0].equals("upload")){
-                // Construct a post to insert
-//                for(Blog t : blogList.getItems()){
-//                    String h = t.getId();
-//                }
-                for(Object p : (ArrayList)params[1]){
-                    Post post = (Post) p;
-                    String eval = post.getPostId();
-                    com.google.api.services.blogger.model.Post content = new com.google.api.services.blogger.model.Post();
-                    List<Object> resultsFromPostId = (List)postIdExists(BLOG_ID,eval);
-                    if ( eval == null ){
+
+            // Construct a post to insert
+            for(Object p : (ArrayList)params[1]){
+                // Post to work during sync or upload
+                Post post = (Post) p;
+                String eval = post.getPostId(); //Google's Blogger ID
+                //content from model to fill
+                com.google.api.services.blogger.model.Post content = new com.google.api.services.blogger.model.Post();
+                //check if Google's Blogger ID exists
+                List<Object> resultsFromPostId = (List)postIdExists(BLOG_ID,eval);
+
+                if ( eval == null ){
+                    if(params[0].equals("delete")){
+                        continue;
+                    }else{
+                        //create new post on Google's Blogger
                         uploadPost(BLOG_ID,content,post); //create post
-
-                    }else if(!eval.isEmpty() && (boolean)resultsFromPostId.get(0) ) {
-
-                        Blogger.Posts.Get postsGetAction = blog.posts().get(BLOG_ID, post.getPostId());
-
-                        // Restrict the result content to just the data we need.
-                        postsGetAction.setFields("content,published,title,updated");
-
-                        // This step sends the request to the server.
-                        com.google.api.services.blogger.model.Post run = postsGetAction.execute();
-                        if (run.getUpdated() == null){
-
-                            if(new Date(run.getPublished().getValue()) != post.getLastMod()){
-                                Log.d("DATE-Nl-POST",post.getLastMod().toString());
-                                Log.d("DATE-Nl-GOOGLE",run.getPublished().toString());
-                            }
-                        }else if (new Date(run.getUpdated().getValue()) != post.getLastMod()){
-                            List comparisonDates = getDiff( new Date(run.getUpdated().getValue()) , post.getLastMod());
-                            boolean dateEquals = (boolean)comparisonDates.get(0);
-                            Log.d("BOOL",(dateEquals)?"true":"false");
-                            Date bigger = (Date)comparisonDates.get(1);
-                            Date smaller = (Date)comparisonDates.get(2);
-                            Log.d("DATE BIG",  bigger.toString());
-                            Log.d("DATE SMALL",smaller.toString());
-                            String whosLastest = (String)comparisonDates.get(3);
-                            if( whosLastest.equals("POST") ){
-                                //UpdatePost
-                                updatePost(BLOG_ID,post);
-
-                            }else if(whosLastest.equals("GOOGLE") ){
-                                //Download Post
-                                downloadPost(BLOG_ID,post,resultsFromPostId.get(1));
-
-                            }
-                        }
-
-                    }else if (!(boolean)resultsFromPostId.get(0)){
-                        uploadPost(BLOG_ID,content,post); //update post
                     }
 
-                    //listNewIds.add(result.getId());
-                    //listNewUpdated.add(result.getUpdated());
+                }else if(!eval.isEmpty() && (boolean)resultsFromPostId.get(0) ) {
 
 
+                    if(params[0].equals("delete")){
+                        //delete from Google's Blogger
+                        Blogger.Posts.Delete postsDeleteAction = blog.posts().delete(BLOG_ID, post.getPostId());
+                        postsDeleteAction.execute();
+                        continue;
+                    }
+                    //get Post from Blogger
+                    com.google.api.services.blogger.model.Post run = (com.google.api.services.blogger.model.Post) resultsFromPostId.get(1);
+
+                    //Compare dates
+                    List comparisonDates = getDiff( new Date(run.getUpdated().getValue()) , post.getLastMod());
+                    // Check if there's any different on dates
+                    boolean dateEquals = (boolean)comparisonDates.get(0);
+
+                    if (!dateEquals){
+                        Log.d("BOOL",(dateEquals)?"true":"false");
+                        Date bigger = (Date)comparisonDates.get(1);
+                        Date smaller = (Date)comparisonDates.get(2);
+                        Log.d("DATE BIG",  bigger.toString());
+                        Log.d("DATE SMALL",smaller.toString());
+                        // check the latest date
+                        String whosLatest = (String)comparisonDates.get(3);
+
+                        if (params[0].equals("upload")){
+                            //Upload Post
+                            updatePost(BLOG_ID,post);
+
+                        }else if (params[0].equals("sync")){
+
+                            if( whosLatest.equals("POST") ){
+                                //Upload Post
+                                updatePost(BLOG_ID,post);
+
+                            }else if(whosLatest.equals("GOOGLE") ){
+                                //Download Post
+                                downloadPost(post,resultsFromPostId.get(1));
+                            }
+                        }
+                    }
+
+                }else if (!(boolean)resultsFromPostId.get(0)){
+                    uploadPost(BLOG_ID,content,post); //update post
                 }
-                //result.add(listNewIds);
-                //result.add(listNewUpdated);
-
-                return result;
-
-
-
-
-            }else if (params[0].equals("sync")){
 
             }
+
+            return result;
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -255,42 +286,58 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
     @Override
     protected void onPostExecute(Object aVoid) {
         super.onPostExecute(aVoid);
-        loadDialog.dismiss();
-
-
+//        loadDialog.dismiss();
+        //loadDialog.cancel();
+        Log.d("FINISH_TASK","IM FINESHED");
     }
+
     public List getDiff(Date dateBlog, Date datePost){
-//        Calendar calendarBlog = Calendar.getInstance();
-//        Calendar calendarPost = Calendar.getInstance();
-//        calendarBlog.setTime(dateBlog);
-//        calendarPost.setTime(datePost);
-//        SimpleDateFormat format = new SimpleDateFormat("yyyy:MM:dd:HH:mm:ss");
-//        format.setTimeZone(TimeZone.getTimeZone("UTC"));
-//        String postTime = format.format(calendarPost.getTime());
-//        String blogTime = format.format(calendarBlog.getTime());
-//        Date b = calendarBlog.getTime();
-//        Date p = calendarPost.getTime();
-//        Log.d("POST TIME",postTime);
-//        Log.d("BLOG TIME",blogTime);
+        Calendar calendarBlog = Calendar.getInstance();
+        Calendar calendarPost = Calendar.getInstance();
+        calendarBlog.setTime(dateBlog);
+        calendarPost.setTime(datePost);
+        TimeZone.getDefault();
+        SimpleDateFormat format = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy");
+        //format.setTimeZone(TimeZone.getTimeZone("UTC"));
+        format.setTimeZone(TimeZone.getDefault());
+        String postTime = format.format(calendarPost.getTime());
+        String blogTime = format.format(calendarBlog.getTime());
+        Date b = calendarBlog.getTime();
+        Date p = calendarPost.getTime();
+
+        try {
+            b = format.parse(dateBlog.toString());
+            p = format.parse(datePost.toString());
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        if(b!=null)Log.d("B_TIME",b.toString());
+        //Date p = calendarPost.getTime();
+        Log.d("POST TIME",postTime);
+        Log.d("BLOG TIME",blogTime);
+        calendarBlog.setTimeZone(TimeZone.getDefault());
+        calendarPost.setTimeZone(TimeZone.getDefault());
+        Log.d("Blog_CL_TIME",calendarBlog.getTime().toString());
+        Log.d("Post_CL_TIME",calendarPost.getTime().toString());
 
         List arr = new ArrayList();
 
 
-        if(dateBlog.after(datePost)) {
-            arr.add(true);
+        if(b.after(p)) {
+            arr.add(false);
             arr.add(dateBlog);
             arr.add(datePost);
             arr.add("GOOGLE");
             Log.d("ARR","GOOGLE");
-        }else if(dateBlog.before(datePost)) {
-            arr.add(true);
+        }else if(b.before(p)) {
+            arr.add(false);
             arr.add(datePost);
             arr.add(dateBlog);
             arr.add("POST");
             Log.d("ARR","POST");
 
         }else {
-            arr.add(false);
+            arr.add(true);
             arr.add(datePost);
             arr.add(dateBlog);
             arr.add("NONE");

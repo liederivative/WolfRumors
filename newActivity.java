@@ -28,8 +28,12 @@ public class newActivity extends ListActivity{
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.test_main);
 
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        finish();
+    }
 }

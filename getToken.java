@@ -29,6 +29,9 @@ public class getToken extends AsyncTask<String,String,String> {
 
     @Override
     protected String doInBackground(String... authToken) {
+        if (authToken ==  null){
+            return null;
+        }
         try {
             if(authToken[1].equals("refresh_token")){
 

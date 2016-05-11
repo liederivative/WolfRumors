@@ -1,15 +1,14 @@
 package uk.ac.wlv.wolfrumors;
 
 import android.app.Activity;
-import android.app.Dialog;
-import android.content.DialogInterface;
+import android.app.ProgressDialog;
 import android.content.Intent;
-import android.database.sqlite.SQLiteDatabase;
-import android.os.AsyncTask;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode;
 import android.support.v7.widget.LinearLayoutManager;
@@ -21,8 +20,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebView;
-import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,39 +27,99 @@ import com.bignerdranch.android.multiselector.ModalMultiSelectorCallback;
 import com.bignerdranch.android.multiselector.MultiSelector;
 import com.bignerdranch.android.multiselector.SwappingHolder;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
 
 /**
- * Created by user on 4/26/2016.
+ * Fragment List of Post.
+ *
+ * @author Albert Jimenez
+ *
+ *
  */
 public class PostListFragment extends Fragment{
     private RecyclerView mPostRecyclerView;
     private PostAdapter mAdapter;
-    static final int OAUTH_REQUEST = 2096;
+    static final int SYNC_OAUTH_REQUEST = 2096;
     static final int DELETE_DIALOG = 2097;
-    //private boolean mdeleteVisible = false;
+    static final int UPLOAD_OAUTH_REQUEST = 2098;
+    static final int UPLOAD_DIALOG = 2099;
     boolean mState = false; // setting state
     private MultiSelector mMultiSelector = new MultiSelector();
-    private SQLiteDatabase mDatabase;
-    private String token;
-
+    private String refreshToken;
+    OAuthHelper oauthHandler = new OAuthHelper();
+    private ProgressDialog loadDialog;
+    private ThreadService<String> thread;
+    private List<Post> posts;
+    private ArrayList<Post> checked;
     @Override
     public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
+        oauthHandler.init(getContext());
+        refreshToken = oauthHandler.getRefreshToken();
+        posts = getPosts();
+
+        final Handler responseHandler = new Handler(Looper.getMainLooper());
+        ArrayList<Object> init = new ArrayList<>();
+        init.add(oauthHandler.getAccessToken(refreshToken));
+        init.add(getContext());
+
+        thread = new ThreadService<>(responseHandler, init);
+        thread.setBloggerServiceListener( new ThreadService.BloggerListener<String>(){
+            @Override
+            public void onPostExecutionBlogger(String target, ArrayList results) {
+                //loadDialog.dismiss();
+                //manageDialog("null","dismiss");
+                responseHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateUI();
+                        loadDialog.dismiss();
+                    }
+                });
 
 
-        //////////////////
-        //Intent i = BloggerService.newIntent(getActivity());
-        //getActivity().startActivity(i);
+                Log.d("ThreadService","PostListFragment "+ results.toString());
 
-        //////////////////
+            }
+        });
+        thread.start();
+        thread.getLooper();
+        Log.i("THREAD","Started");
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        thread.quit();
+        //PostLab.get(getContext()).close();
+
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        thread.clearQueue();
     }
 
 
+    public void manageDialog(String msg,String action){
+        if(!action.equals("dismiss")){
+            loadDialog = new ProgressDialog(getContext());
+            loadDialog.setMessage(msg);
+            loadDialog.setIndeterminate(false);
+            loadDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            loadDialog.setCancelable(true);
+            loadDialog.show();
+        }else {
+            loadDialog.dismiss();
+        }
+
+    }
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -85,11 +142,7 @@ public class PostListFragment extends Fragment{
         super.onCreateOptionsMenu(menu, inflater);
         inflater.inflate(R.menu.fragment_post_list_menu, menu);
         MenuItem deleteItem = menu.findItem(R.id.menu_item_delete_post);
-        // hide option until an element is created
-        //if (mdeleteVisible){
-        //    deleteItem.setVisible(false);
-        //    getActivity().invalidateOptionsMenu();
-        //}
+
     }
     @Override
     public boolean onOptionsItemSelected(MenuItem item){
@@ -104,9 +157,14 @@ public class PostListFragment extends Fragment{
                 return true;
             case R.id.menu_item_sync_post:
                 //syncPosts();
+                if((refreshToken == null)?true:refreshToken.isEmpty()){
                 Intent share = new Intent();
                 share.setClass(getContext(), OAuthHelper.class);
-                startActivityForResult(share, OAUTH_REQUEST);
+                startActivityForResult(share, SYNC_OAUTH_REQUEST);
+                }else{
+                    syncPosts("sync",getString(R.string.progress_dialog_sync),(ArrayList<Post>) posts);
+
+                }
 
                 return true;
             default:
@@ -119,12 +177,12 @@ public class PostListFragment extends Fragment{
         if(resultCode != Activity.RESULT_OK){
             return;
         }
-        if (requestCode == OAUTH_REQUEST){
+        if (requestCode == SYNC_OAUTH_REQUEST){
 
             if (data != null) {
-                String t = data.getStringExtra("access_token");
-
-                Log.d("OAUTH", t);
+                String token = data.getStringExtra("access_token");
+                Log.d("OAUTH", token);
+                syncPosts("sync",getString(R.string.progress_dialog_sync),(ArrayList<Post>) posts);
             }
 
         }else if (requestCode == DELETE_DIALOG){
@@ -132,8 +190,6 @@ public class PostListFragment extends Fragment{
             if(params.get(0).equals("delete")){
                 if(params.get(1).equals("YES")){
                     //Delete posts
-                    PostLab postlab = PostLab.get(getActivity());
-                    List<Post> posts = postlab.getPosts();
                     for (int i = posts.size(); i >= 0; i--) {
                         if (mMultiSelector.isSelected(i, 0)) { // (1)
                             // remove item from list
@@ -143,15 +199,21 @@ public class PostListFragment extends Fragment{
                             mAdapter.notifyItemRemoved(i);
                         }
                     }
+                    syncPosts("delete",getString(R.string.progress_dialog_delete),checked);
                     mMultiSelector.clearSelections();
                 }
             }
+        }else if (requestCode == UPLOAD_OAUTH_REQUEST){
+
+        }else if (requestCode == UPLOAD_DIALOG){
+
+            syncPosts("upload",getString(R.string.progress_dialog_upload),checked);
+
         }
     }
+
     public void updateUI() {
-        PostLab postlab = PostLab.get(getActivity());
-        List<Post> posts = postlab.getPosts();
-        //Log.d("TAG",posts.toString());
+        List<Post> posts = getPosts();
         if (mAdapter ==null){
             if(isAdded()){
                 mAdapter = new PostAdapter(posts);
@@ -162,18 +224,45 @@ public class PostListFragment extends Fragment{
             mAdapter.notifyDataSetChanged();
         }
     }
-
+    public List<Post> getPosts(){
+        PostLab postlab = PostLab.get(getActivity());
+        List<Post> posts = postlab.getPosts();
+        return posts;
+    }
     private void sharePost(){
 
     }
-    private void syncPosts(){
+    private void syncPosts(String msg, String progressMsg, ArrayList<Post> posts){
+        if(refreshToken != null){
 
+            loadDialog = new ProgressDialog(getContext());
+            loadDialog.setMessage(progressMsg);
+            loadDialog.setIndeterminate(false);
+            loadDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            loadDialog.setCancelable(false);
+            loadDialog.show();
+
+            ArrayList<Object> params = new ArrayList<>();
+            params.add(msg);
+            params.add(posts);
+            thread.queueBlogger("PO",params);
+        }
     }
 
 
     /////////////////////////////////////////////////
     //keep track of the visual element of each Post
     //private class PostHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+    public ArrayList<Post> getSelectedPost(List<Post> posts){
+        ArrayList<Post> contents = new ArrayList<>();
+        for (int a = (posts.size()-1); a >= 0; a--) {
+            if (mMultiSelector.isSelected(a, 0)) { // (1)
+                //
+                contents.add(posts.get(a));
+            }
+        }
+        return contents;
+    }
     private ModalMultiSelectorCallback mActionModeCallback
             = new ModalMultiSelectorCallback(mMultiSelector) {
 
@@ -181,10 +270,6 @@ public class PostListFragment extends Fragment{
         public boolean onCreateActionMode(ActionMode actionMode, Menu menu) {
             super.onCreateActionMode(actionMode, menu);
             getActivity().getMenuInflater().inflate(R.menu.post_list_delete, menu);
-
-            if (mState){
-                menu.getItem(1).setVisible(false);
-            }
 
             return true;
         }
@@ -199,89 +284,75 @@ public class PostListFragment extends Fragment{
         @Override
         public boolean onActionItemClicked(ActionMode actionMode, MenuItem menuItem) {
 
-            PostLab postlab = PostLab.get(getActivity());
-            List<Post> posts = postlab.getPosts();
 
+            checked = getSelectedPost(posts);
 
+            if(checked.size() !=0){
+                switch(menuItem.getItemId()){
+                    case R.id.menu_item_delete_post:
+                        actionMode.finish();
+                        ArrayList<Object> params = new ArrayList<>();
+                        params.add("delete");
+                        params.add(refreshToken);
+                        DialogFragment m = NoticeDialog.newInstance(params);
+                        m.setTargetFragment(PostListFragment.this, DELETE_DIALOG);
+                        m.show(getFragmentManager(),"NoticeDialog");
 
-            switch(menuItem.getItemId()){
-                case R.id.menu_item_delete_post:
-                    actionMode.finish();
-                    ArrayList<String> params = new ArrayList<>();
-                    params.add("delete");
-                    DialogFragment m = NoticeDialog.newInstance(params);
-                    m.setTargetFragment(PostListFragment.this, DELETE_DIALOG);
-                    m.show(getFragmentManager(),"NoticeDialog");
-
-                    return true;
-                case R.id.menu_item_share_post:
-                    Post post = posts.get(0);
-
-                    Intent i = new Intent();
-                    ArrayList<String> contents = new ArrayList<>();
-                    for (int a = posts.size(); a >= 0; a--) {
-                        if (mMultiSelector.isSelected(a, 0)) { // (1)
-                            //
-                            contents.add(posts.get(a).getContent());
-                        }
-                    }
-                    if (contents.size() > 1){
-                         i.setAction(Intent.ACTION_SEND_MULTIPLE);
-                        i.putExtra(Intent.EXTRA_TEXT,contents);
-
-                    }else {
-                        i.setAction(Intent.ACTION_SEND);
-                        i.putExtra(Intent.EXTRA_TEXT,contents.get(0));
-                        i.putExtra(Intent.EXTRA_SUBJECT,"Post from Wolfrumors");
-                    }
-                    i.setType("text/plain");
-                    Log.d("TAG",contents.toString());
-
-                    startActivity(
-                            Intent.createChooser(i,
-                                    getString(
-                                            R.string.share_post_string_button)));
-
-
-                    //Intent i = new Intent(Intent.ACTION_SEND);
-                    //i.setType("text/plain");
-
-                    mMultiSelector.clearSelections();
-                    return true;
-                case R.id.menu_item_uplodad_post:
-
-                    OAuthHelper oauthHandler = new OAuthHelper();
-                    oauthHandler.init(getContext());
-                    String refresh_token = oauthHandler.getRefreshToken();
-                    String tmp = oauthHandler.getAccessToken(refresh_token);
-
-                    if ( (tmp == null)?true:tmp.isEmpty()) {
-                        Toast.makeText(getActivity(), "You need to login first", Toast.LENGTH_SHORT).show();
-                        Toast.makeText(getActivity(), "Go back and press Sync Button", Toast.LENGTH_LONG).show();
-
-                    }else if (!tmp.isEmpty()) {
-
-                        Log.d("CLASS", tmp);
-
-                        ArrayList<Post> postSelected = new ArrayList<Post>();
-                        for (int a = posts.size(); a >= 0; a--) {
-                            if (mMultiSelector.isSelected(a, 0)) { // (1)
-                                //
-                                postSelected.add(posts.get(a));
+                        return true;
+                    case R.id.menu_item_share_post:
+                        Intent i = new Intent();
+                        if (checked.size() > 1){
+                            Toast.makeText(getActivity(),R.string.share_multiples, Toast.LENGTH_SHORT).show();
+                            mMultiSelector.clearSelections();
+                        }else {
+                            actionMode.finish();
+                            i.setAction(android.content.Intent.ACTION_SEND);
+                            i.putExtra(android.content.Intent.EXTRA_SUBJECT,checked.get(0).getTitle());
+                            i.putExtra(android.content.Intent.EXTRA_TEXT, checked.get(0).getContent());
+                            Post post = checked.get(0);
+                            if(post.getPhotoPath()!=null){
+                                File photo = new File(post.getPhotoPath());
+                                if(photo.exists()){
+                                    i.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(photo));
+                                }
                             }
+                            i.setType("text/plain");
+                            Log.d("TAG",checked.toString());
+                            startActivity(Intent.createChooser(i,getString(
+                                    R.string.share_post_string_button)));
                         }
 
+                        return true;
+                    case R.id.menu_item_uplodad_post:
 
-                        BloggerHandler upload = new BloggerHandler(tmp, getContext());
-                        Object[] u = {"upload", postSelected};
-                        upload.execute(u);
-                    }
-                    mMultiSelector.clearSelections();
-                    Toast.makeText(getContext(), "Post(s) updated", Toast.LENGTH_SHORT).show();
-                    mAdapter.setPosts(posts);
-                    mAdapter.notifyDataSetChanged();
-                    return true;
+                        if ( (refreshToken == null)?true:refreshToken.isEmpty()) {
+
+                            Toast.makeText(getActivity(),R.string.login_auth_error, Toast.LENGTH_SHORT).show();
+                            Intent share = new Intent();
+                            share.setClass(getContext(), OAuthHelper.class);
+                            startActivityForResult(share, UPLOAD_OAUTH_REQUEST);
+
+
+                        }else if (!refreshToken.isEmpty()) {
+
+                            Log.d("CLASS", refreshToken);
+                            ArrayList<Object> paramsUpload = new ArrayList<>();
+                            paramsUpload.add("upload");
+                            DialogFragment uploadDialog = NoticeDialog.newInstance(paramsUpload);
+
+                            uploadDialog.setTargetFragment(PostListFragment.this, UPLOAD_DIALOG);
+                            uploadDialog.show(getFragmentManager(),"UploadDialog");
+
+                        }
+
+                        actionMode.finish();
+                        return true;
+                }
+            }else {
+                Toast.makeText(getActivity(), R.string.post_selection_error, Toast.LENGTH_SHORT).show();
+                actionMode.finish();
             }
+
             return false;
         }
     };
@@ -289,25 +360,24 @@ public class PostListFragment extends Fragment{
 
         private TextView mTitleTextView;
         private TextView mDateTextView;
-        private CheckBox mSolvedCheckBox;
         private Post mPost;
 
         public PostHolder(View itemView) {
-            super(itemView, mMultiSelector); // (2)
+            super(itemView, mMultiSelector);
             itemView.setLongClickable(true);
             mTitleTextView = (TextView)itemView.findViewById(R.id.list_item_post_title_text_view);
             mDateTextView = (TextView)itemView.findViewById(R.id.list_item_post_date_text_view);
 
             itemView.setOnLongClickListener(new View.OnLongClickListener(){
                 @Override
-                public boolean onLongClick(View view) { // (6)
-                    if (!mMultiSelector.isSelectable()) { // (3)
+                public boolean onLongClick(View view) {
+                    if (!mMultiSelector.isSelectable()) {
                         ((AppCompatActivity) getActivity()).startSupportActionMode(mActionModeCallback);
-                        mMultiSelector.setSelectable(true); // (4)
-                        mMultiSelector.setSelected(PostHolder.this, true); // (5)
+                        mMultiSelector.setSelectable(true);
+                        mMultiSelector.setSelected(PostHolder.this, true);
                         int r = mMultiSelector.getSelectedPositions().size();
 
-                        Toast.makeText(getActivity(),Integer.toString(r) + " OnLongClick Clicked!",Toast.LENGTH_SHORT).show();
+                        //Toast.makeText(getActivity(),Integer.toString(r) + " OnLongClick Clicked!",Toast.LENGTH_SHORT).show();
 
                         return true;
                     }
@@ -319,12 +389,10 @@ public class PostListFragment extends Fragment{
                 public void onClick(View view) {
 
                     if (!mMultiSelector.tapSelection(PostHolder.this)){
-                        // do whatever we want to do when not in selection mode
-                        // perhaps navigate to a detail screen
-                        Toast.makeText(getActivity(),"tapSelection Clicked!",Toast.LENGTH_SHORT).show();
 
+                        //Toast.makeText(getActivity(),"tapSelection Clicked!",Toast.LENGTH_SHORT).show();
+                        //Start Activity for Post's edition
                         Intent intent = PostPagerActivity.newIntent(getActivity(), mPost.getId());
-                        //Intent intent = WolfActivity.newIntent(getActivity(),mPost.getId());
                         startActivity(intent);
 
                     }
@@ -362,10 +430,8 @@ public class PostListFragment extends Fragment{
         @Override
         public void onBindViewHolder(PostHolder holder, int position) {
             Post post = mPosts.get(position);
-            //Log.d("TAG",Integer.toString(holder.getAdapterPosition()));
-
-            //holder.mTitleTextView.setText(post.getTitle());
             holder.bindPost(post);
+
         }
         @Override
         public int getItemCount() {
@@ -378,30 +444,6 @@ public class PostListFragment extends Fragment{
 
 
     }
-    private class FetchPostTask extends AsyncTask<Void, Void, List<Post>>{
-        @Override
-        protected List<Post> doInBackground(Void... params) {
-            //return new FlickerFetchr().fetchItems();
-            return null;
-        }
-
-        @Override
-        protected void onProgressUpdate(Void... values) {
-            super.onProgressUpdate(values);
-        }
-
-        @Override
-        protected void onPostExecute(List<Post> posts) {
-            super.onPostExecute(posts);
-            PostLab postlab = PostLab.get(getActivity());
-            for (int i = posts.size(); i >= 0; i--) {
-                postlab.addPost(posts.get(i));
-            }
-            updateUI();
-
-        }
-    }
-
 
 
 }

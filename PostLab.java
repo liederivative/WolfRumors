@@ -13,7 +13,6 @@ import java.util.UUID;
 
 import uk.ac.wlv.wolfrumors.database.PostCursorWrapper;
 import uk.ac.wlv.wolfrumors.database.PostDBReferee;
-import uk.ac.wlv.wolfrumors.database.PostsDBSchema;
 import uk.ac.wlv.wolfrumors.database.PostsDBSchema.PostTable;
 
 /**
@@ -26,13 +25,15 @@ public class PostLab {
     private SQLiteDatabase mDatabase;
 
     public static PostLab get(Context context) {
-        if (sPostLab == null) {
+
+        if (sPostLab == null ) {
             sPostLab = new PostLab(context);
         }
         return sPostLab;
     }
 
     private PostLab(Context context) {
+
         mContext = context.getApplicationContext();
         mDatabase = new PostDBReferee(mContext).getWritableDatabase();
         //mPosts = new ArrayList<>();
@@ -95,7 +96,7 @@ public class PostLab {
         values.put(PostTable.Cols.CONTENT, post.getContent());
         values.put(PostTable.Cols.DATE, post.getDate().getTime());
         values.put(PostTable.Cols.LAST_MOD, post.getLastMod().getTime() );//.getTime());
-        values.put(PostTable.Cols.PHOTO_URL,post.getPhotoFilename());
+        values.put(PostTable.Cols.PHOTO_URL,post.getPhotoPath());
         values.put(PostTable.Cols.IS_CAMERA,post.getStatusPhoto()?"1":"0");
         values.put(PostTable.Cols.POST_ID,post.getPostId());
 
@@ -108,23 +109,23 @@ public class PostLab {
                 Args,
                 null, //groupby
                 null, //having
-                null // orderBy
+                PostTable.Cols.LAST_MOD+ " DESC" // orderBy
         );
         return new PostCursorWrapper(cursor);
     }
     /// Manage Photos
     public File getPhotoFile(Post post){
-        if (post.getStatusPhoto()){
-
-            File externalFileDir = mContext.getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-            if (externalFileDir == null){
-                return null;
-            }
-
-            return new File(externalFileDir, post.getPhotoFilename());
-        }else {
-            return new File(post.getPhotoFilename());
+        if(post.getPhotoPath() == null){
+            return null;
         }
+        return new File(post.getPhotoPath());
+
+    }
+    public void close(){
+        if (mDatabase != null && mDatabase.isOpen()) {
+            mDatabase.close();
+        }
+
     }
 
 }
