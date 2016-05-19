@@ -14,6 +14,7 @@ import android.support.v7.app.AppCompatActivity;
 
 import android.util.Base64;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.webkit.WebView;
@@ -26,10 +27,17 @@ import java.util.concurrent.ExecutionException;
 import uk.ac.wlv.wolfrumors.database.PostCursorWrapper;
 import uk.ac.wlv.wolfrumors.database.PostDBReferee;
 import uk.ac.wlv.wolfrumors.database.PostsDBSchema.oauthTokenFactory;
-
 /**
- * Created by user on 4/30/2016.
+ * Responsible for Aouth2 authentication and authorization Blogger.com .
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  30 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class OAuthHelper extends AppCompatActivity {
     static final int REQUEST_AUTHORIZATION = 1003;
     static final String AUTH_BLOGGER = "oauth2:https://www.googleapis.com/auth/blogger";
@@ -100,7 +108,9 @@ public class OAuthHelper extends AppCompatActivity {
                             ContentValues values = getContentValues(refreshToken);
                             mDatabase.insert(oauthTokenFactory.NAME, null, values);
                            // mBlogger.execute(accessToken);
-                            Toast.makeText(OAuthHelper.this, "Successful!! Can Sync and Upload now", Toast.LENGTH_LONG).show();
+                            Toast toast = Toast.makeText(OAuthHelper.this, "Successful!! Can Sync and Upload now", Toast.LENGTH_LONG);
+                            toast.setGravity(Gravity.CENTER,0,0);
+                            toast.show();
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         } catch (ExecutionException e) {

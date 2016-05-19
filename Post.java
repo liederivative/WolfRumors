@@ -9,10 +9,17 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.StringTokenizer;
 import java.util.UUID;
-
 /**
- * Created by user on 4/26/2016.
+ * Post Class for Singleton.
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  26 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class Post {
     private UUID mId;
     private String mTitle;

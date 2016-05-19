@@ -13,6 +13,16 @@ import android.view.LayoutInflater;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Wrapper for dialog of the system .
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  30 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
+ */
 public class NoticeDialog extends DialogFragment {
     public static final String ARRAY_EXTRA = "array.params";
     private ArrayList<Object> resultParams = new ArrayList<>();

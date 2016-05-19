@@ -8,10 +8,17 @@ import android.support.v4.app.FragmentManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
-
 /**
- * Created by user on 4/26/2016.
+ * Extends from SingleFragmentActivity.
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  26 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class PostListActivity extends SingleFragmentActivity {
     @Override
     protected Fragment createFragment(){

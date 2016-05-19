@@ -28,10 +28,17 @@ import java.io.File;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.UUID;
-
 /**
- * Created by user on 4/26/2016.
+ * Fragment for edit, view and save posts .
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  26 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class FragmentPost extends Fragment {
 
     private Post mPost;
@@ -86,7 +93,9 @@ public class FragmentPost extends Fragment {
         params.add("refreshPhoto");
         UUID postId = (UUID) getArguments().getSerializable(ARG_POST_ID);
         mPost = PostLab.get(getActivity()).getPost(postId);
-        mPhotoFile = PostLab.get(getActivity()).getPhotoFile(mPost);
+        if (mPost != null){
+            mPhotoFile = PostLab.get(getActivity()).getPhotoFile(mPost);
+        }
 
     }
 
@@ -164,7 +173,7 @@ public class FragmentPost extends Fragment {
 
             }
         });
-        // fix error when swiping deleted blank post
+        // fixes error when swiping deleted blank post
         if(mPost != null) {
             mTitleField.setText(mPost.getTitle());
             if(mPost.getContent() != null){

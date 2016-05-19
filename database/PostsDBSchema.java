@@ -1,8 +1,15 @@
 package uk.ac.wlv.wolfrumors.database;
-
 /**
- * Created by user on 4/28/2016.
+ * Initial creation of schema for DB.
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  28 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class PostsDBSchema {
 
     public static final class PostTable {

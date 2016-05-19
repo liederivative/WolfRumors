@@ -14,10 +14,17 @@ import java.util.UUID;
 import uk.ac.wlv.wolfrumors.database.PostCursorWrapper;
 import uk.ac.wlv.wolfrumors.database.PostDBReferee;
 import uk.ac.wlv.wolfrumors.database.PostsDBSchema.PostTable;
-
 /**
- * Created by user on 4/26/2016.
+ * Post Class for managing Post.
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  26 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class PostLab {
     private static PostLab sPostLab;
     //private List<Post> mPosts;

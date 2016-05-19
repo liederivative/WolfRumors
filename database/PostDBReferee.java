@@ -6,10 +6,17 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 import uk.ac.wlv.wolfrumors.PostLab;
 import uk.ac.wlv.wolfrumors.database.PostsDBSchema.PostTable;
-
 /**
- * Created by user on 4/28/2016.
+ * creation of SQLite DB.
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  28 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class PostDBReferee extends SQLiteOpenHelper {
     public static final int VERSION = 1;
     private static final String DATABASE_NAME = "Posts.db";

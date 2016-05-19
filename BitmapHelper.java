@@ -4,10 +4,17 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
-
 /**
- * Created by user on 4/29/2016.
+ * Change ratio of images and transform to Bitmap .
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  29 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class BitmapHelper {
     public static Bitmap getScaleBitmap(String path,Activity activity){
         Point size = new Point();

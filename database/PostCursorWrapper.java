@@ -10,10 +10,17 @@ import java.util.UUID;
 import uk.ac.wlv.wolfrumors.Post;
 import uk.ac.wlv.wolfrumors.database.PostsDBSchema.PostTable;
 import uk.ac.wlv.wolfrumors.database.PostsDBSchema.oauthTokenFactory;
-
 /**
- * Created by user on 4/28/2016.
+ * Singleton for DB.
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  28 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class PostCursorWrapper extends CursorWrapper {
     public PostCursorWrapper(Cursor cursor){
         super(cursor);

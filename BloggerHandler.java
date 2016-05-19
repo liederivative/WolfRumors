@@ -21,7 +21,7 @@ import com.google.api.services.blogger.model.User;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Array;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -29,10 +29,22 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
-import java.util.UUID;
 
 /**
- * Created by user on 5/5/2016.
+ * Class responsible for upload, download and sync from Blogger.com .
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  5 May 2016
+ *  Modified:
+ *  16 May 2016
+ *  ==========
+ *  Change design for download posts from Blogger on sync.
+ *  ==========
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *  Google (2016) Blogger API Documentation [online]. [Accessed 12 April 2016]. Available at: <https://developers.google.com/blogger/docs/3.0/reference/>
+ *
  */
 
 public class BloggerHandler extends AsyncTask<Object,Void,Object>{
@@ -52,25 +64,25 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
 
 
     }
+
     public static BloggerHandler newInstance(String accessToken, Context context){
         BloggerHandler handler = new BloggerHandler(accessToken,context);
         return handler;
     }
 
-    public String getUserId()throws IOException{
-
-        Blogger.Users.Get usersGetAction = null;
-        usersGetAction = blog.users().get("self");
-        //usersGetAction.setFields("displayName,id");
-        usersGetAction.setFields("id");
-        User user = usersGetAction.execute();
-        return user.getId();
-    }
+//    public String getUserId()throws IOException{
+//
+//        Blogger.Users.Get usersGetAction = null;
+//        usersGetAction = blog.users().get("self");
+//        //usersGetAction.setFields("displayName,id");
+//        usersGetAction.setFields("id");
+//        User user = usersGetAction.execute();
+//        return user.getId();
+//    }
     public String getBlogId() throws IOException{
 
         Blogger.Blogs.ListByUser blogListByUserAction = blog.blogs().listByUser("self");
         // Restrict the result content to just the data we need.
-        //blogListByUserAction.setFields("items(id,name,posts/totalItems,updated)");
         blogListByUserAction.setFields("items(id)");
         // This step sends the request to the server.
         BlogList blogList = blogListByUserAction.execute();
@@ -80,17 +92,12 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
     @Override
     protected void onPreExecute() {
         super.onPreExecute();
-//        loadDialog = new ProgressDialog(mContext);
-//        loadDialog.setMessage("Working on your selection...");
-//        loadDialog.setIndeterminate(false);
-//        loadDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-//        loadDialog.setCancelable(true);
-//        loadDialog.show();
     }
+
     public Object postIdExists(String BLOG_ID, String POST_ID){
         // The request action.
         //Blogger.Posts.List postsListAction = null;
-        List<Object> returnResults= new ArrayList<Object>();
+        List<Object> returnResults= new ArrayList<>();
         try {
             // The request action.
             Blogger.Posts.Get postsGetAction = blog.posts().get(BLOG_ID, POST_ID);
@@ -122,12 +129,12 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
         //com.google.api.services.blogger.model.Post.Images[] = {test};
         //List<com.google.api.services.blogger.model.Post.Images> list = new ArrayList<com.google.api.services.blogger.model.Post.Images>();
         //content.setImages( list.add(test));
-        List<com.google.api.services.blogger.model.Post.Images> images = new ArrayList<>();
-        com.google.api.services.blogger.model.Post.Images img = new com.google.api.services.blogger.model.Post.Images();
-        img.set(getFileName(post.getPhotoPath()),new File(post.getPhotoPath()));
-        images.add(img);
-        content.setImages(images);
-        content.set("fetchImages",true);
+        //List<com.google.api.services.blogger.model.Post.Images> images = new ArrayList<>();
+        //com.google.api.services.blogger.model.Post.Images img = new com.google.api.services.blogger.model.Post.Images();
+        //img.set(getFileName(post.getPhotoPath()),new File(post.getPhotoPath()));
+        //images.add(img);
+        //content.setImages(images);
+        //content.set("fetchImages",true);
         // The request action.
         Blogger.Posts.Insert postsInsertAction = null;
         try {
@@ -151,6 +158,8 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
         }
 
     }
+
+    // for future implementation
     private String getFileName(String b){
         char[] c = new char[b.length()];
         int i;
@@ -161,6 +170,7 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
         }
         return String.copyValueOf(c);
     }
+
     public boolean updatePost(String BLOG_ID, Post post){
         // Construct the post update body
         com.google.api.services.blogger.model.Post content = new com.google.api.services.blogger.model.Post();
@@ -177,7 +187,7 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
             postsUpdateAction.setFields("published,updated");
             com.google.api.services.blogger.model.Post result = postsUpdateAction.execute();
             result.getUpdated();
-            post.setLastMod(new Date(result.getUpdated().getValue()));
+            post.setLastMod(new Date(result.getUpdated().getValue())); //result.getUpdated().getValue()
             PostLab.get(mContext).updatePost(post);
             Log.d("UPDATE",post.getTitle());
             return true;
@@ -194,6 +204,80 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
         PostLab.get(mContext).updatePost(post);
         return true;
     }
+    public List downloadList(String BLOG_ID){
+        com.google.api.services.blogger.Blogger.Posts.List getListPost = null;
+        ArrayList results = new ArrayList(); // container
+        try {
+            getListPost = blog.posts().list(BLOG_ID);
+            getListPost.setFields("items(id,content,updated,title),nextPageToken");
+
+            PostList ListOfPost = getListPost.execute();
+            //List ListOfPost = getListPostResults.getItems();
+            int postCount = 0;
+            int pageCount = 0;
+
+
+            while (ListOfPost.getItems() != null && !ListOfPost.getItems().isEmpty()) {
+                for ( int i = ListOfPost.getItems().size() -1 ; i >= 0;i-- ) {
+                    //Post p = new Post();
+                    results.add(ListOfPost.getItems().get(i));
+                    //com.google.api.services.blogger.model.Post post = (com.google.api.services.blogger.model.Post)List_post.get(i);
+//                    p.setContent(post.getContent());
+//                    p.setTitle(post.getTitle());
+//                    p.setLastMod(new Date(post.getUpdated().getValue()));
+//                    p.setPostId(post.getId());
+//                    e_p.add(p);
+//                    Log.d("POST____",post.getTitle());
+                }
+
+                // Pagination logic
+                String pageToken = ListOfPost.getNextPageToken();
+                if (pageToken == null || ++pageCount >= 5) {
+                    break;
+                }
+                //go next page
+                getListPost.setPageToken(pageToken);
+                ListOfPost = getListPost.execute();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+        return results;
+    }
+
+    public ArrayList returnNewPosts(List BloggerList, List LocalPost ){
+        ArrayList results = new ArrayList();
+        int count = 0;
+        if( LocalPost.size() == 0){
+            //all new post
+            for(Object bp: BloggerList){
+                com.google.api.services.blogger.model.Post bloggerPost = (com.google.api.services.blogger.model.Post)bp;
+                results.add(bp);
+
+            }
+            return results;
+        }
+        for(Object bp: BloggerList){
+            com.google.api.services.blogger.model.Post bloggerPost = (com.google.api.services.blogger.model.Post)bp;
+
+            int j = 0;
+            for(Object p: LocalPost){
+                Post post = (Post)p;
+                if(bloggerPost.getId().equals(post.getPostId())){
+                    j++;
+                }
+            }
+            if(j==0){
+                results.add(bp);
+            }
+
+        }
+        return results;
+    }
+
+
     @Override
     protected Object doInBackground(Object... params) {
         Log.d("TY",params[0].toString());
@@ -207,29 +291,54 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
         }
 
         try {
+            List newPostsFromBlogger = new ArrayList();
+            ArrayList<Post> paramsArray = new ArrayList<>();
+            List localPosts = PostLab.get(mContext).getPosts();
+           // List t = new ArrayList();
+            if (params[0].equals("sync")){
+                List BloggerPosts = downloadList(BLOG_ID);
+                newPostsFromBlogger = returnNewPosts(BloggerPosts,localPosts);
+                paramsArray = (ArrayList)params[1];
+            }else {
+                paramsArray = (ArrayList)params[1];
+            }
 
             // Construct a post to insert
-            for(Object p : (ArrayList)params[1]){
+            for(Object p : paramsArray){
                 // Post to work during sync or upload
                 Post post = (Post) p;
-                String eval = post.getPostId(); //Google's Blogger ID
+                String postID = post.getPostId(); //Google's Blogger ID
                 //content from model to fill
                 com.google.api.services.blogger.model.Post content = new com.google.api.services.blogger.model.Post();
                 //check if Google's Blogger ID exists
-                List<Object> resultsFromPostId = (List)postIdExists(BLOG_ID,eval);
+                List<Object> resultsFromPostId = (List)postIdExists(BLOG_ID,postID);
 
-                if ( eval == null ){
-                    if(params[0].equals("delete")){
-                        continue;
-                    }else{
-                        //create new post on Google's Blogger
-                        uploadPost(BLOG_ID,content,post); //create post
-                    }
+                if ( postID == null ){
+//                    if(params[0].equals("sync") ){
+//
+//                            for (Object contentWithPostID :yu){
+//                                Post yuo = (Post)contentWithPostID;
+//                                if (post.getTitle().equals(yuo.getTitle()) && post.getContent().equals(yuo.getContent()) ){
+//                                    post.setPostId(yuo.getPostId());
+//                                    //add new post from blogger
+//                                    PostLab.get(mContext).addPost(post);
+//                                }
+//                            }
+//
+//                    }else{
+//                        //create new post on Google's Blogger
+//                        uploadPost(BLOG_ID,content,post); //create post
+//
+//
+//                    }
+//                    if(params[0].equals("sync")){
+//                        downloadPost(post,resultsFromPostId.get(1));
+//                    }
 
-                }else if(!eval.isEmpty() && (boolean)resultsFromPostId.get(0) ) {
+                }else if(!postID.isEmpty() && (boolean)resultsFromPostId.get(0) ) {
 
 
-                    if(params[0].equals("delete")){
+                    if(params[0].equals("delete") ){
                         //delete from Google's Blogger
                         Blogger.Posts.Delete postsDeleteAction = blog.posts().delete(BLOG_ID, post.getPostId());
                         postsDeleteAction.execute();
@@ -270,7 +379,22 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
                     }
 
                 }else if (!(boolean)resultsFromPostId.get(0)){
-                    uploadPost(BLOG_ID,content,post); //update post
+                    uploadPost(BLOG_ID,content,post); //upload post
+                }
+
+            }
+            if(params[0].equals("sync")) {
+                //add new post
+                if (newPostsFromBlogger != null){
+                    for(Object p: newPostsFromBlogger){
+                        com.google.api.services.blogger.model.Post bloggerPost = (com.google.api.services.blogger.model.Post)p;
+                        Post localPost = new Post();
+                        localPost.setTitle(bloggerPost.getTitle());
+                        localPost.setContent(bloggerPost.getContent());
+                        localPost.setLastMod(new Date(bloggerPost.getUpdated().getValue()));
+                        localPost.setPostId(bloggerPost.getId());
+                        PostLab.get(mContext).addPost(localPost);
+                    }
                 }
 
             }
@@ -286,8 +410,6 @@ public class BloggerHandler extends AsyncTask<Object,Void,Object>{
     @Override
     protected void onPostExecute(Object aVoid) {
         super.onPostExecute(aVoid);
-//        loadDialog.dismiss();
-        //loadDialog.cancel();
         Log.d("FINISH_TASK","IM FINESHED");
     }
 

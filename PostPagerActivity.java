@@ -14,8 +14,16 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Created by user on 4/27/2016.
+ * Post Pager Activity.
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  27 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 //AppCompatActivity is a subclass of FragmentActivity
 public class PostPagerActivity extends AppCompatActivity {
     private static final String EXTRA_POST_ID = "uk.ac.wlv.wolfrumors.post_id";

@@ -12,10 +12,17 @@ import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-
 /**
- * Created by user on 4/29/2016.
+ * Thread class to handle AsyncTask in a separate Thread.
+ *
+ * @author Albert Jimenez
+ *  Created:
+ *  29 April 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
+ *
  */
+
 public class ThreadService<T> extends HandlerThread{
     private Context mContext;
     private static final int MSG_POST = 0;

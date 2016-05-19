@@ -37,7 +37,10 @@ import java.util.List;
  * Fragment List of Post.
  *
  * @author Albert Jimenez
- *
+ *  Created:
+ *  12 May 2016
+ *  Reference:
+ *  Phillips, B., Hardy, B. and Big Nerd Ranch (2015) Android Programming: The Big Nerd Ranch Guide. Big Nerd Ranch.
  *
  */
 public class PostListFragment extends Fragment{
@@ -61,7 +64,6 @@ public class PostListFragment extends Fragment{
         setHasOptionsMenu(true);
         oauthHandler.init(getContext());
         refreshToken = oauthHandler.getRefreshToken();
-        posts = getPosts();
 
         final Handler responseHandler = new Handler(Looper.getMainLooper());
         ArrayList<Object> init = new ArrayList<>();
@@ -133,6 +135,8 @@ public class PostListFragment extends Fragment{
     @Override
     public void onResume() {
         super.onResume();
+        posts = getPosts();
+        refreshToken = oauthHandler.getRefreshToken();
         updateUI();
     }
 
@@ -199,7 +203,7 @@ public class PostListFragment extends Fragment{
                             mAdapter.notifyItemRemoved(i);
                         }
                     }
-                    syncPosts("delete",getString(R.string.progress_dialog_delete),checked);
+                    //syncPosts("delete",getString(R.string.progress_dialog_delete),checked);
                     mMultiSelector.clearSelections();
                 }
             }
@@ -263,6 +267,7 @@ public class PostListFragment extends Fragment{
         }
         return contents;
     }
+    //fixes no multiple selection of items on LongClick event
     private ModalMultiSelectorCallback mActionModeCallback
             = new ModalMultiSelectorCallback(mMultiSelector) {
 
